@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import sys
+from defcon import Font
+
+wantedFontLibKeys = ["com.fontlab.v2.tth"]
+wantedGlyphLibKeys = ["com.adobe.type.autohint.v2", "com.fontlab.ttprogram"]
+wantedFontInfoProperties = ["postscriptBlueValues", "postscriptOtherBlues", "postscriptFamilyBlues", "postscriptFamilyOtherBlues", "postscriptStemSnapH", "postscriptStemSnapV", "postscriptBlueFuzz", "postscriptBlueShift", "postscriptBlueScale"]
+def mergeGuidelines (source, destination):
+  currentGuidelines = []
+
+  for guideline in destination.guidelines:
+    currentGuidelines.append(guideline.copy())
+
+  for guideline in source.guidelines:
+    guideline = guideline.copy()
+    if guideline not in currentGuidelines:
+      destination.appendGuideline(guideline)
+
+def copyLibEntries (keys, source, destination):
+  for key in keys:
+    if key in source:
+      destination[key] = source[key]
+
+if len(sys.argv[1:]) != 2:
+    raise ValueError(f'Command format: {sys.argv[0]} <UFO PATH TO UPDATE> <OTHER UFO PATH>')
+
+def copyInfoProperties (propnames, source, destination):
+  for propname in propnames:
+    setattr(destination, propname, getattr(source, propname))
+
+print(f'Merging data from {sys.argv[2]} into {sys.argv[1]}...')
+sourceFont = Font(sys.argv[2])
+destinationFont = Font(sys.argv[1])
+
+mergeGuidelines(sourceFont, destinationFont)
+copyLibEntries (wantedFontLibKeys, sourceFont.lib, destinationFont.lib)
+copyInfoProperties (wantedFontInfoProperties, sourceFont.info, destinationFont.info)
+
+for glyphName in sourceFont.keys():
+  if glyphName not in destinationFont:
+    print (f"Glyph \"{glyphName}\" does not exist in destination font!")
+    continue
+
+  sourceGlyph = sourceFont[glyphName]
+  destinationGlyph = destinationFont[glyphName]
+
+  mergeGuidelines(sourceGlyph, destinationGlyph)
+  sourceGlyph.clearComponents()
+  destinationGlyph.clearContours()
+  sourceGlyph.drawPoints(destinationGlyph.getPointPen())
+  copyLibEntries(wantedGlyphLibKeys, sourceGlyph.lib, destinationGlyph.lib)
+
+destinationFont.save()
+print("Done.")
