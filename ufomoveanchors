@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from sys import exit
+from ufoLib2 import Font
+from argparse import ArgumentParser
+
+def move_in_glyph(glyph, anchor_names, delta_x, delta_y):
+  updateCount = 0
+  for anchor in glyph.anchors:
+    if anchor_names is None or anchor.name in (anchor_names):
+      anchor.x += delta_x
+      anchor.y += delta_y
+      updateCount += 1
+  return updateCount
+
+parser = ArgumentParser(description='Move (translate) anchors in UFO glyphs that have them.')
+parser.add_argument('UFO_PATH', help='UFO path')
+parser.add_argument('-x', '--delta-x', help='how many units to move the anchors horizontally (defaults to 0)', type=float, default=0)
+parser.add_argument('-y', '--delta-y', help='how many units to move the anchors vertically (defaults to 0)', type=float, default=0)
+parser.add_argument('-a', '--anchor', help='limit action to specific anchor(s) only (may be specified multiple times)', action='append')
+parser.add_argument('-g', '--glyph', help="limit action to specific glyph(s) only (may be specified multiple times)", action='append')
+parser.add_argument('-p', '--prefix',
+                    help='also move anchors matching prefixed name (prefix defaults to "_" if option is passed without value)',
+                    nargs='?',
+                    default=False,
+                    )
+
+args = parser.parse_args()
+
+if args.prefix is None:
+  args.prefix='_'
+elif args.prefix==False:
+  args.prefix=None
+
+if args.delta_x == 0 and args.delta_y == 0:
+  print('Nothing to do here. Exiting.')
+  exit()
+
+font = Font.open(args.UFO_PATH)
+updateCount = 0
+anchor_names = args.anchor
+if args.prefix is not None and args.anchor is not None:
+  anchor_names = args.anchor.copy()
+  for anchor_name in args.anchor:
+    anchor_names.append(args.prefix + anchor_name)
+
+if args.glyph:
+  glyph_names = set(args.glyph)
+  for glyph_name in glyph_names:
+    if glyph_name not in font:
+      print(f'Error: glyph named "{glyph_name}" not found in font!')
+      exit(1)
+    updateCount += move_in_glyph(font[glyph_name], anchor_names, args.delta_x, args.delta_y)
+else:
+  for glyph in font:
+    updateCount += move_in_glyph(glyph, anchor_names, args.delta_x, args.delta_y)
+
+font.save()
+print(f'Done. Made {updateCount} change(s).')
